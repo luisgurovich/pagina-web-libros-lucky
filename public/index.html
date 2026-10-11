@@ -959,6 +959,7 @@
         <div class="admin-tabs">
           <button class="admin-tab active" data-tab="registro">Registro de descargas</button>
           <button class="admin-tab" data-tab="catalogo-edit">Editar catálogo</button>
+          <button class="admin-tab" id="admin-add-book" type="button">+ Agregar nuevo libro</button>
         </div>
 
         <!-- REGISTRO TAB -->
@@ -1464,7 +1465,19 @@ function nextBookIdentity(){
   return {nextId,nextCode};
 }
 
-document.getElementById('add-book').addEventListener('click', ()=>{
+function addNewBook(){
+  const editTab = document.getElementById('tab-catalogo-edit');
+  const registerTab = document.getElementById('tab-registro');
+
+  if(editTab && editTab.style.display === 'none'){
+    document.querySelectorAll('.admin-tab[data-tab]').forEach(t=>t.classList.remove('active'));
+    const catalogTab = document.querySelector('.admin-tab[data-tab="catalogo-edit"]');
+    if(catalogTab) catalogTab.classList.add('active');
+    if(registerTab) registerTab.style.display = 'none';
+    editTab.style.display = 'block';
+    renderEditGrid();
+  }
+
   syncBooksFromEditor();
   const {nextId,nextCode} = nextBookIdentity();
   books.push({
@@ -1481,6 +1494,7 @@ document.getElementById('add-book').addEventListener('click', ()=>{
     cover:''
   });
   renderEditGrid();
+
   const cards = document.querySelectorAll('.edit-card');
   const newCard = cards[cards.length - 1];
   if(newCard){
@@ -1488,7 +1502,10 @@ document.getElementById('add-book').addEventListener('click', ()=>{
     const titleInput = newCard.querySelector('[data-field="title"]');
     if(titleInput) setTimeout(()=>titleInput.focus(), 350);
   }
-});
+}
+
+document.getElementById('add-book').addEventListener('click', addNewBook);
+document.getElementById('admin-add-book').addEventListener('click', addNewBook);
 
 document.getElementById('save-catalog').addEventListener('click', async ()=>{
   syncBooksFromEditor();

@@ -988,7 +988,7 @@
           </div>
           <div class="catalog-edit-grid" id="edit-grid"></div>
           <div class="save-row">
-            <button class="btn btn-ghost" id="reset-catalog">Restaurar catálogo original</button>
+            <button class="btn btn-ghost" id="reset-catalog">Restaurar los 9 libros originales</button>
             <button class="btn btn-primary" id="save-catalog">Guardar cambios</button>
           </div>
         </div>
@@ -1540,7 +1540,7 @@ document.getElementById('save-catalog').addEventListener('click', async ()=>{
   setTimeout(()=> btn.textContent = original, 1600);
 });
 document.getElementById('reset-catalog').addEventListener('click', async ()=>{
-  if(!confirm('¿Restaurar el catálogo a los valores originales? Se perderán los cambios guardados.')) return;
+  if(!confirm('ATENCIÓN: esta acción restaurará los 9 libros originales del sitio. Se eliminarán del catálogo todos los libros agregados posteriormente y se perderán las modificaciones hechas desde el Panel del editor. ¿Desea continuar?')) return;
   const previous = books;
   books = JSON.parse(JSON.stringify(DEFAULT_BOOKS));
   try{

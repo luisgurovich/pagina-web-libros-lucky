@@ -236,7 +236,8 @@ app.use(express.static(PUBLIC_DIR, {
   }
 }));
 
-app.get('*', (req, res) => {
+app.use((req, res, next) => {
+  if (req.method !== 'GET') return next();
   res.sendFile(path.join(PUBLIC_DIR, 'index.html'));
 });
 

@@ -2,68 +2,18 @@
 
 const express = require('express');
 const path = require('path');
-const fs = require('fs');
 const crypto = require('crypto');
 const cookieParser = require('cookie-parser');
 const rateLimit = require('express-rate-limit');
-const Database = require('better-sqlite3');
 
 const app = express();
 const ROOT = __dirname;
 const PUBLIC_DIR = path.join(ROOT, 'public');
-const STORAGE_DIR = process.env.STORAGE_DIR ? path.resolve(process.env.STORAGE_DIR) : ROOT;
-const DATA_DIR = path.join(STORAGE_DIR, 'data');
-const DB_FILE = path.join(DATA_DIR, 'mis-libros.db');
 const PORT = Number(process.env.PORT || 10000);
 const ADMIN_KEY = String(process.env.ADMIN_KEY || '');
 const IS_PRODUCTION = process.env.NODE_ENV === 'production';
-
-fs.mkdirSync(DATA_DIR, { recursive: true });
-
-const db = new Database(DB_FILE);
-db.pragma('journal_mode = WAL');
-db.exec(`
-  CREATE TABLE IF NOT EXISTS downloads (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    book_id INTEGER,
-    book_title TEXT NOT NULL,
-    reader_name TEXT NOT NULL,
-    phone TEXT NOT NULL,
-    consent INTEGER NOT NULL CHECK(consent IN (0,1)),
-    created_at TEXT NOT NULL
-  );
-
-  CREATE TABLE IF NOT EXISTS settings (
-    key TEXT PRIMARY KEY,
-    value TEXT NOT NULL,
-    updated_at TEXT NOT NULL
-  );
-
-  CREATE INDEX IF NOT EXISTS idx_downloads_created ON downloads(created_at);
-  CREATE INDEX IF NOT EXISTS idx_downloads_book ON downloads(book_id, book_title);
-  CREATE INDEX IF NOT EXISTS idx_downloads_phone ON downloads(phone);
-`);
-
-const insertDownload = db.prepare(`
-  INSERT INTO downloads (book_id, book_title, reader_name, phone, consent, created_at)
-  VALUES (?, ?, ?, ?, ?, ?)
-`);
-const listDownloads = db.prepare(`
-  SELECT id, book_id AS bookId, book_title AS bookTitle,
-         reader_name AS name, phone, created_at AS date
-  FROM downloads
-  ORDER BY created_at DESC, id DESC
-`);
-const getBooksSetting = db.prepare('SELECT value FROM settings WHERE key = ?');
-const upsertBooksSetting = db.prepare(`
-  INSERT INTO settings (key, value, updated_at)
-  VALUES ('books', ?, ?)
-  ON CONFLICT(key) DO UPDATE SET value=excluded.value, updated_at=excluded.updated_at
-`);
-
-function nowIso() {
-  return new Date().toISOString();
-}
+const STORAGE_API_BASE = String(process.env.PORTAL_STORAGE_API || '').replace(/\/+$/, '');
+const STORAGE_API_KEY = String(process.env.MIS_LIBROS_INTERNAL_KEY || '');
 
 function safeEqualText(a, b) {
   const ah = crypto.createHash('sha256').update(String(a)).digest();
@@ -119,10 +69,45 @@ function cleanText(value, max) {
   return String(value || '').trim().replace(/\s+/g, ' ').slice(0, max);
 }
 
+async function storageRequest(route, options = {}) {
+  if (!STORAGE_API_BASE || !STORAGE_API_KEY) {
+    const error = new Error('El almacenamiento persistente no está configurado.');
+    error.status = 503;
+    throw error;
+  }
+
+  const headers = {
+    'x-mis-libros-key': STORAGE_API_KEY,
+    ...(options.body ? {'Content-Type':'application/json'} : {}),
+    ...(options.headers || {})
+  };
+
+  let response;
+  try {
+    response = await fetch(STORAGE_API_BASE + route, {
+      ...options,
+      headers,
+      signal: AbortSignal.timeout(10000)
+    });
+  } catch {
+    const error = new Error('El almacenamiento persistente no está disponible temporalmente.');
+    error.status = 503;
+    throw error;
+  }
+
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    const error = new Error(data.error || 'Error del almacenamiento persistente.');
+    error.status = response.status >= 400 && response.status < 600 ? response.status : 502;
+    throw error;
+  }
+  return data;
+}
+
 app.set('trust proxy', 1);
 app.disable('x-powered-by');
 app.use(cookieParser());
-app.use(express.json({ limit: '200kb' }));
+app.use(express.json({ limit: '400kb' }));
 app.use(express.urlencoded({ extended: false, limit: '100kb' }));
 
 const downloadLimiter = rateLimit({
@@ -138,26 +123,31 @@ const loginLimiter = rateLimit({
   legacyHeaders: false
 });
 
-app.get('/healthz', (req, res) => {
-  res.json({
-    ok: true,
-    storage: STORAGE_DIR,
-    persistentStorageConfigured: Boolean(process.env.STORAGE_DIR)
-  });
-});
-
-app.get('/api/books', (req, res) => {
-  const row = getBooksSetting.get('books');
-  if (!row) return res.json({ books: null });
+app.get('/healthz', async (req, res) => {
   try {
-    const books = JSON.parse(row.value);
-    return res.json({ books: Array.isArray(books) ? books : null });
-  } catch {
-    return res.json({ books: null });
+    const storage = await storageRequest('/status');
+    res.json({
+      ok: true,
+      storageBackend: 'Portal IA',
+      persistentStorage: Boolean(storage.persistentStorage),
+      database: storage.database || null
+    });
+  } catch (error) {
+    res.status(503).json({ ok:false, error:error.message });
   }
 });
 
-app.post('/api/downloads', downloadLimiter, (req, res) => {
+app.get('/api/books', async (req, res) => {
+  try {
+    const data = await storageRequest('/books', { method:'GET' });
+    res.setHeader('Cache-Control', 'no-store');
+    res.json({ books: Array.isArray(data.books) ? data.books : null });
+  } catch (error) {
+    res.status(error.status || 503).json({ error:error.message });
+  }
+});
+
+app.post('/api/downloads', downloadLimiter, async (req, res) => {
   if (!verifySameOrigin(req)) return res.status(403).json({ error: 'Origen no permitido.' });
 
   const bookId = Number(req.body.bookId);
@@ -170,9 +160,21 @@ app.post('/api/downloads', downloadLimiter, (req, res) => {
     return res.status(400).json({ error: 'Nombre, teléfono y autorización son obligatorios.' });
   }
 
-  const date = nowIso();
-  insertDownload.run(Number.isFinite(bookId) ? bookId : null, bookTitle, name, phone, 1, date);
-  res.status(201).json({ ok: true, date });
+  try {
+    const data = await storageRequest('/downloads', {
+      method:'POST',
+      body:JSON.stringify({
+        bookId:Number.isFinite(bookId) ? bookId : null,
+        bookTitle,
+        name,
+        phone,
+        consent:true
+      })
+    });
+    res.status(201).json(data);
+  } catch (error) {
+    res.status(error.status || 503).json({ error:error.message });
+  }
 });
 
 app.post('/api/admin/login', loginLimiter, (req, res) => {
@@ -200,29 +202,32 @@ app.get('/api/admin/session', (req, res) => {
   res.json({ authenticated: verifyAdminToken(req.cookies.mis_libros_admin) });
 });
 
-app.get('/api/admin/downloads', requireAdmin, (req, res) => {
-  res.setHeader('Cache-Control', 'no-store');
-  res.json({ downloads: listDownloads.all() });
+app.get('/api/admin/downloads', requireAdmin, async (req, res) => {
+  try {
+    const data = await storageRequest('/downloads', { method:'GET' });
+    res.setHeader('Cache-Control', 'no-store');
+    res.json({ downloads: Array.isArray(data.downloads) ? data.downloads : [] });
+  } catch (error) {
+    res.status(error.status || 503).json({ error:error.message });
+  }
 });
 
-app.put('/api/admin/books', requireAdmin, (req, res) => {
+app.put('/api/admin/books', requireAdmin, async (req, res) => {
   if (!verifySameOrigin(req)) return res.status(403).json({ error: 'Origen no permitido.' });
   const books = req.body.books;
   if (!Array.isArray(books) || books.length < 1 || books.length > 100) {
     return res.status(400).json({ error: 'Catálogo no válido.' });
   }
-  const sanitized = books.map((book, index) => ({
-    id: Number.isFinite(Number(book.id)) ? Number(book.id) : index + 1,
-    code: cleanText(book.code, 20),
-    genre: cleanText(book.genre, 160),
-    title: cleanText(book.title, 240),
-    subtitle: cleanText(book.subtitle, 240),
-    desc: String(book.desc || '').trim().slice(0, 4000),
-    pdfUrl: String(book.pdfUrl || '').trim().slice(0, 1200),
-    cover: String(book.cover || '').slice(0, 300000)
-  }));
-  upsertBooksSetting.run(JSON.stringify(sanitized), nowIso());
-  res.json({ ok: true, books: sanitized });
+
+  try {
+    const data = await storageRequest('/books', {
+      method:'PUT',
+      body:JSON.stringify({books})
+    });
+    res.json(data);
+  } catch (error) {
+    res.status(error.status || 503).json({ error:error.message });
+  }
 });
 
 app.use(express.static(PUBLIC_DIR, {
@@ -248,6 +253,5 @@ app.use((err, req, res, next) => {
 
 app.listen(PORT, '0.0.0.0', () => {
   console.log('Mis Libros IA activo en puerto ' + PORT);
-  console.log('Base de datos: ' + DB_FILE);
-  console.log('Almacenamiento persistente configurado: ' + Boolean(process.env.STORAGE_DIR));
+  console.log('Almacenamiento remoto: ' + (STORAGE_API_BASE || 'NO CONFIGURADO'));
 });

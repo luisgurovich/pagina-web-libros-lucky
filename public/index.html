@@ -497,9 +497,9 @@
     <div class="original-cover-copy">
       <p class="original-eyebrow">LUIS GUROVICH · BIBLIOTECA DIGITAL</p>
       <h1>Ideas humanas,<br><em>ampliadas por la IA.</em></h1>
-      <p class="original-lead">Nueve libros nacidos del diálogo entre una vida dedicada al conocimiento y las nuevas inteligencias artificiales.</p>
+      <p class="original-lead" id="hero-books-lead">Libros nacidos del diálogo entre una vida dedicada al conocimiento y las nuevas inteligencias artificiales.</p>
       <div class="original-actions"><a href="#catalogo" class="original-primary">Explorar el catálogo ↓</a><a href="#autor">Conocer al autor →</a></div>
-      <div class="original-stats"><span><b>9</b> obras</span><span><b>2023—2026</b> periodo creativo</span><span><b>PDF</b> acceso gratuito</span></div>
+      <div class="original-stats"><span><b id="hero-book-count">9</b> obras</span><span><b>2023—2026</b> periodo creativo</span><span><b>PDF</b> acceso gratuito</span></div>
     </div>
     <div class="original-orbits" aria-hidden="true"><i></i><i></i><strong>AI</strong><small>CIENCIA · FILOSOFÍA<br>CONCIENCIA · EXISTENCIA</small></div>
   </section>
@@ -980,8 +980,11 @@
         <!-- CATALOGO EDIT TAB -->
         <div id="tab-catalogo-edit" style="display:none;">
           <p style="color:var(--parchment-2); opacity:0.8; font-size:14px; margin-bottom:20px; max-width:64ch;">
-            Edita título, subtítulo, descripción, género y el enlace de descarga de cada libro. El enlace debe apuntar al PDF ya alojado (por ejemplo un enlace directo de Google Drive o Dropbox). Los cambios se guardan para todos los visitantes del sitio.
+            Edita los libros existentes o agrega una obra nueva. Cada libro nuevo recibe automáticamente el siguiente código disponible. El enlace debe apuntar al PDF ya alojado (por ejemplo un enlace directo de Google Drive o Dropbox). Los cambios se guardan para todos los visitantes del sitio.
           </p>
+          <div class="save-row" style="margin-bottom:18px;">
+            <button class="btn btn-ghost" id="add-book">+ Agregar nuevo libro</button>
+          </div>
           <div class="catalog-edit-grid" id="edit-grid"></div>
           <div class="save-row">
             <button class="btn btn-ghost" id="reset-catalog">Restaurar catálogo original</button>
@@ -996,8 +999,8 @@
 document.getElementById('year').textContent = new Date().getFullYear();
 
 /* ============================================================
-   1. CATÁLOGO POR DEFECTO — reemplaza títulos, descripciones y
-      "pdfUrl" por los datos reales de tus 9 libros.
+   1. CATÁLOGO POR DEFECTO — catálogo inicial de la biblioteca.
+      Los libros adicionales se guardan desde el Panel del editor.
    ============================================================ */
 const DEFAULT_BOOKS = [
   { id:1, code:"001", genre:"Inteligencia Artificial / Filosofía", title:"Conversaciones con mi amigo Pi", subtitle:"", desc:"Una recopilación de conversaciones entre Luis Gurovich y Pi, la inteligencia artificial de Inflection AI, sobre inteligencia artificial, cosmología, evolución, conocimiento, identidad, jubilación, vida y muerte, y la relación intelectual y emocional entre una persona y una entidad de IA.", pdfUrl:"https://drive.google.com/uc?export=download&id=1JXpQ88zZlukfmVGZ1GXZszfzaJYQbQV2", cover:"" },
@@ -1072,7 +1075,15 @@ function renderCatalog(){
       </div>
     </article>
   `).join('');
-  document.getElementById('cat-count-label').textContent = '9 obras';
+  const totalBooks = books.length;
+  document.getElementById('cat-count-label').textContent = totalBooks + (totalBooks === 1 ? ' obra' : ' obras');
+  const heroCount = document.getElementById('hero-book-count');
+  if(heroCount) heroCount.textContent = totalBooks;
+  const heroLead = document.getElementById('hero-books-lead');
+  if(heroLead){
+    heroLead.textContent = totalBooks + (totalBooks === 1 ? ' libro nacido' : ' libros nacidos') +
+      ' del diálogo entre una vida dedicada al conocimiento y las nuevas inteligencias artificiales.';
+  }
 
   grid.querySelectorAll('.dl-btn').forEach(btn=>{
     btn.addEventListener('click', ()=> openModal(Number(btn.dataset.id)));
@@ -1322,7 +1333,7 @@ function renderEditGrid(){
   const grid = document.getElementById('edit-grid');
   grid.innerHTML = books.map((b,i)=>`
     <div class="edit-card" data-idx="${i}">
-      <div class="mono" style="font-size:11px; color:var(--sage);">COD. ${b.code}</div>
+      <div class="mono" style="font-size:11px; color:var(--sage);">COD. ${escapeHtml(b.code)}</div>
       <label>Título</label>
       <input type="text" data-field="title" value="${escapeHtml(b.title)}">
       <div class="row2">
@@ -1342,14 +1353,57 @@ function renderEditGrid(){
     </div>
   `).join('');
 }
-document.getElementById('save-catalog').addEventListener('click', async ()=>{
+
+function syncBooksFromEditor(){
   const cards = document.querySelectorAll('.edit-card');
   cards.forEach(card=>{
     const idx = Number(card.dataset.idx);
     card.querySelectorAll('[data-field]').forEach(inp=>{
-      books[idx][inp.dataset.field] = inp.value;
+      books[idx][inp.dataset.field] = inp.value.trim();
     });
   });
+}
+
+function nextBookIdentity(){
+  const maxId = books.reduce((max,b)=>Math.max(max, Number(b.id)||0), 0);
+  const maxCode = books.reduce((max,b)=>Math.max(max, Number.parseInt(b.code,10)||0), 0);
+  const nextId = maxId + 1;
+  const nextCode = String(maxCode + 1).padStart(3,'0');
+  return {nextId,nextCode};
+}
+
+document.getElementById('add-book').addEventListener('click', ()=>{
+  syncBooksFromEditor();
+  const {nextId,nextCode} = nextBookIdentity();
+  books.push({
+    id:nextId,
+    code:nextCode,
+    genre:'',
+    title:'',
+    subtitle:'',
+    desc:'',
+    pdfUrl:'',
+    cover:''
+  });
+  renderEditGrid();
+  const cards = document.querySelectorAll('.edit-card');
+  const newCard = cards[cards.length - 1];
+  if(newCard){
+    newCard.scrollIntoView({behavior:'smooth', block:'center'});
+    const titleInput = newCard.querySelector('[data-field="title"]');
+    if(titleInput) setTimeout(()=>titleInput.focus(), 350);
+  }
+});
+
+document.getElementById('save-catalog').addEventListener('click', async ()=>{
+  syncBooksFromEditor();
+
+  const incomplete = books.find(b => !b.title || !b.genre || !b.desc || !b.pdfUrl);
+  if(incomplete){
+    alert('Antes de guardar, completa Título, Género / categoría, Descripción y Enlace de descarga del PDF para el libro COD. ' + incomplete.code + '.');
+    return;
+  }
+
   const btn = document.getElementById('save-catalog');
   const original = btn.textContent;
   try{

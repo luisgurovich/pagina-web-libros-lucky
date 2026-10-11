@@ -903,17 +903,9 @@
       <div class="eyebrow-dark mono">Descarga gratuita</div>
       <h3 id="modal-title">Título del libro</h3>
       <p class="modal-sub">Deja tus datos para recibir el enlace de descarga. Solo se usan para llevar un registro interno de lectores.</p>
-      <form id="download-form"
-            name="registro-descarga"
-            method="POST"
-            data-netlify="true"
-            netlify-honeypot="bot-field">
-        <input type="hidden" name="form-name" value="registro-descarga">
+      <form id="download-form">
         <input type="hidden" id="f-book" name="libro" value="">
         <input type="hidden" id="f-date" name="fecha" value="">
-        <p style="position:absolute;left:-9999px;" aria-hidden="true">
-          <label>No completar este campo: <input name="bot-field"></label>
-        </p>
         <div class="field">
           <label for="f-name">Nombre completo</label>
           <input type="text" id="f-name" name="nombre" autocomplete="name" required>
@@ -1019,8 +1011,6 @@ const DEFAULT_BOOKS = [
   { id:9, code:"009", genre:"Inteligencia Artificial / Futuro", title:"Predicting the Future in the AI Era", subtitle:"", desc:"Una investigación sobre las posibilidades y límites de la inteligencia artificial para anticipar el futuro. Examina la predicción probabilística, la calibración, una taxonomía científica del porvenir y la capacidad de la IA para pronosticar fenómenos meteorológicos, epidemiológicos, económicos, políticos, tecnológicos y sociales, sin confundir predicción con certeza.", pdfUrl:"/Predicting%20the%20Future.pdf", cover:"" }
 ];
 
-const ADMIN_PASSCODE = "archivo2026"; // cámbiala por tu propia clave
-
 let books = [];
 let downloads = [];
 let currentBook = null;
@@ -1029,27 +1019,36 @@ let currentBook = null;
    2. PERSISTENCIA
    ============================================================ */
 async function loadBooks(){
-  // Versión definitiva del catálogo: 9 libros.
-  // Se ignora cualquier catálogo antiguo guardado en el navegador (por ejemplo,
-  // la versión de 10 libros) para evitar que reaparezca después del deploy.
-  books = DEFAULT_BOOKS.map(b => ({...b, cover:""}));
+  books = DEFAULT_BOOKS.map(b => ({...b, cover:b.cover || ""}));
   try{
-    await window.storage.set('books-catalog', JSON.stringify(books), true);
-  }catch(e){}
-}
-async function saveBooks(){
-  await window.storage.set('books-catalog', JSON.stringify(books), true);
-}
-async function loadDownloads(){
-  try{
-    const res = await window.storage.get('downloads-log', true);
-    downloads = res && res.value ? JSON.parse(res.value) : [];
+    const response = await fetch('/api/books', { cache:'no-store', credentials:'same-origin' });
+    if(!response.ok) throw new Error('No se pudo cargar el catálogo guardado.');
+    const data = await response.json();
+    if(Array.isArray(data.books) && data.books.length){
+      books = data.books;
+    }
   }catch(e){
-    downloads = [];
+    // Si el backend aún no responde, se conserva el catálogo editorial de 9 libros.
   }
 }
-async function saveDownloads(){
-  await window.storage.set('downloads-log', JSON.stringify(downloads), true);
+async function saveBooks(){
+  const response = await fetch('/api/admin/books', {
+    method:'PUT',
+    headers:{'Content-Type':'application/json'},
+    credentials:'same-origin',
+    body:JSON.stringify({books})
+  });
+  const data = await response.json().catch(()=>({}));
+  if(!response.ok) throw new Error(data.error || 'No fue posible guardar el catálogo.');
+}
+async function loadDownloads(){
+  const response = await fetch('/api/admin/downloads', {
+    cache:'no-store',
+    credentials:'same-origin'
+  });
+  const data = await response.json().catch(()=>({}));
+  if(!response.ok) throw new Error(data.error || 'No fue posible cargar el registro.');
+  downloads = Array.isArray(data.downloads) ? data.downloads : [];
 }
 
 /* ============================================================
@@ -1128,84 +1127,68 @@ document.getElementById('download-form').addEventListener('submit', async (e)=>{
   }
 
   errorBox.style.display = 'none';
-
   const submitBtn = form.querySelector('.modal-submit');
   submitBtn.disabled = true;
-  submitBtn.textContent = 'Preparando descarga…';
+  submitBtn.textContent = 'Registrando…';
 
-  document.getElementById('f-book').value = currentBook ? currentBook.title : '';
-  document.getElementById('f-date').value = new Date().toISOString();
+  const book = currentBook;
+  const popup = book && book.id !== 9 ? window.open('about:blank', '_blank') : null;
 
-  const record = {
-    bookId: currentBook ? currentBook.id : null,
-    bookTitle: currentBook ? currentBook.title : '',
-    name,
-    phone,
-    date: document.getElementById('f-date').value
-  };
-
-  // Guardar copia local sin bloquear la descarga.
   try{
-    await loadDownloads();
-    downloads.push(record);
-    await saveDownloads();
-  }catch(localErr){}
+    const response = await fetch('/api/downloads', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      credentials:'same-origin',
+      body:JSON.stringify({
+        bookId: book ? book.id : null,
+        bookTitle: book ? book.title : '',
+        name,
+        phone,
+        consent
+      })
+    });
+    const data = await response.json().catch(()=>({}));
+    if(!response.ok) throw new Error(data.error || 'No fue posible registrar la descarga.');
 
-  // DESCARGA: nunca debe quedar bloqueada por Netlify Forms.
-  if(currentBook && currentBook.pdfUrl){
-    try{
-      if(currentBook.id === 9){
-        // Libro 9: PDF alojado en el mismo sitio Netlify.
+    document.getElementById('f-date').value = data.date || new Date().toISOString();
+
+    if(book && book.pdfUrl){
+      if(book.id === 9){
         const a = document.createElement('a');
-        a.href = currentBook.pdfUrl;
+        a.href = book.pdfUrl;
         a.download = 'Predicting the Future.pdf';
         document.body.appendChild(a);
         a.click();
         a.remove();
-      } else {
-        // Libros 1–8: PDFs alojados en Google Drive.
-        // Abrir inmediatamente dentro del gesto del usuario para evitar bloqueo del navegador.
-        window.open(currentBook.pdfUrl, '_blank', 'noopener');
-      }
-
-      document.getElementById('modal-form-state').style.display = 'none';
-      document.getElementById('modal-success-state').style.display = 'block';
-
-      if(currentBook.id === 9){
-        document.getElementById('success-text').innerHTML =
-          'La descarga de <strong>' + currentBook.title + '</strong> se ha iniciado. ' +
-          '<a href="' + currentBook.pdfUrl + '" download="Predicting the Future.pdf" ' +
-          'style="color:var(--sage); font-weight:600;">Si no comienza automáticamente, haz clic aquí.</a>';
+      }else if(popup){
+        popup.location.href = book.pdfUrl;
       }else{
-        document.getElementById('success-text').innerHTML =
-          'El libro <strong>' + currentBook.title + '</strong> se abrió en una nueva pestaña para su descarga. ' +
-          '<a href="' + currentBook.pdfUrl + '" target="_blank" rel="noopener" ' +
-          'style="color:var(--sage); font-weight:600;">Si no se abrió, haz clic aquí.</a>';
+        window.location.href = book.pdfUrl;
       }
-    }catch(downloadErr){
-      errorBox.textContent = 'No fue posible iniciar la descarga. Inténtalo nuevamente.';
-      errorBox.style.display = 'block';
-      submitBtn.disabled = false;
-      submitBtn.textContent = 'Descargar PDF';
-      return;
     }
+
+    document.getElementById('modal-form-state').style.display = 'none';
+    document.getElementById('modal-success-state').style.display = 'block';
+
+    if(book && book.id === 9){
+      document.getElementById('success-text').innerHTML =
+        'La descarga de <strong>' + book.title + '</strong> se ha iniciado. ' +
+        '<a href="' + book.pdfUrl + '" download="Predicting the Future.pdf" ' +
+        'style="color:var(--sage); font-weight:600;">Si no comienza automáticamente, haz clic aquí.</a>';
+    }else if(book){
+      document.getElementById('success-text').innerHTML =
+        'El libro <strong>' + book.title + '</strong> se abrió en una nueva pestaña para su descarga. ' +
+        '<a href="' + book.pdfUrl + '" target="_blank" rel="noopener" ' +
+        'style="color:var(--sage); font-weight:600;">Si no se abrió, haz clic aquí.</a>';
+    }
+  }catch(err){
+    if(popup && !popup.closed) popup.close();
+    errorBox.textContent = err.message || 'No fue posible registrar la descarga. Inténtalo nuevamente.';
+    errorBox.style.display = 'block';
+  }finally{
+    submitBtn.disabled = false;
+    submitBtn.textContent = 'Descargar PDF';
   }
-
-  // Intentar registrar en Netlify, pero JAMÁS bloquear la descarga si falla.
-  try{
-    const formData = new FormData(form);
-    const body = new URLSearchParams();
-    for (const [key, value] of formData.entries()) body.append(key, value);
-
-    await fetch('/', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: body.toString()
-    });
-  }catch(netlifyErr){}
-
-  submitBtn.disabled = false;
-  submitBtn.textContent = 'Descargar PDF';
 });
 
 /* ============================================================
@@ -1224,14 +1207,23 @@ document.getElementById('close-admin').addEventListener('click', (e)=>{
 /* ---- gate ---- */
 document.getElementById('gate-enter').addEventListener('click', enterGate);
 document.getElementById('gate-pass').addEventListener('keydown', (e)=>{ if(e.key==='Enter') enterGate(); });
-function enterGate(){
+async function enterGate(){
   const val = document.getElementById('gate-pass').value;
-  if(val === ADMIN_PASSCODE){
+  const error = document.getElementById('gate-error');
+  error.style.display='none';
+  try{
+    const response = await fetch('/api/admin/login', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      credentials:'same-origin',
+      body:JSON.stringify({key:val})
+    });
+    if(!response.ok) throw new Error('Clave incorrecta.');
     document.getElementById('gate').style.display='none';
     document.getElementById('admin-panel').style.display='block';
-    renderAdmin();
-  }else{
-    document.getElementById('gate-error').style.display='block';
+    await renderAdmin();
+  }catch(e){
+    error.style.display='block';
   }
 }
 
@@ -1358,21 +1350,33 @@ document.getElementById('save-catalog').addEventListener('click', async ()=>{
       books[idx][inp.dataset.field] = inp.value;
     });
   });
-  await saveBooks();
-  renderCatalog();
-  renderFilterOptions();
   const btn = document.getElementById('save-catalog');
   const original = btn.textContent;
-  btn.textContent = 'Guardado ✓';
+  try{
+    await saveBooks();
+    renderCatalog();
+    renderFilterOptions();
+    btn.textContent = 'Guardado ✓';
+  }catch(e){
+    alert(e.message || 'No fue posible guardar los cambios.');
+    btn.textContent = original;
+    return;
+  }
   setTimeout(()=> btn.textContent = original, 1600);
 });
 document.getElementById('reset-catalog').addEventListener('click', async ()=>{
   if(!confirm('¿Restaurar el catálogo a los valores originales? Se perderán los cambios guardados.')) return;
+  const previous = books;
   books = JSON.parse(JSON.stringify(DEFAULT_BOOKS));
-  await saveBooks();
-  renderCatalog();
-  renderEditGrid();
-  renderFilterOptions();
+  try{
+    await saveBooks();
+    renderCatalog();
+    renderEditGrid();
+    renderFilterOptions();
+  }catch(e){
+    books = previous;
+    alert(e.message || 'No fue posible restaurar el catálogo.');
+  }
 });
 
 /* ============================================================

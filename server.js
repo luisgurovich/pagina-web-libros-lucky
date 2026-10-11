@@ -254,4 +254,7 @@ app.use((err, req, res, next) => {
 app.listen(PORT, '0.0.0.0', () => {
   console.log('Mis Libros IA activo en puerto ' + PORT);
   console.log('Almacenamiento remoto: ' + (STORAGE_API_BASE || 'NO CONFIGURADO'));
+  storageRequest('/status')
+    .then(status => console.log('Almacenamiento persistente remoto verificado: ' + Boolean(status.persistentStorage)))
+    .catch(error => console.error('No fue posible verificar el almacenamiento remoto: ' + error.message));
 });

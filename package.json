@@ -1,8 +1,8 @@
 {
   "name": "mis-libros-ia-render",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "private": true,
-  "description": "Mis Libros IA de Luis Gurovich: versión Render con registro persistente de lectores.",
+  "description": "Mis Libros IA de Luis Gurovich: frontend independiente con almacenamiento persistente en Portal IA.",
   "engines": {
     "node": ">=20 <23"
   },
@@ -10,7 +10,6 @@
     "start": "node server.js"
   },
   "dependencies": {
-    "better-sqlite3": "^11.10.0",
     "cookie-parser": "^1.4.7",
     "express": "^5.1.0",
     "express-rate-limit": "^8.1.0"

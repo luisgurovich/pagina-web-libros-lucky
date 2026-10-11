@@ -519,11 +519,11 @@
     <div class="wrap">
       <div class="section-head">
         <h2>Detalles de los Libros</h2>
-        <div class="cat-count mono">9 obras</div>
+        <div class="cat-count mono" id="details-count-label">9 obras</div>
       </div>
       <p class="details-intro">
         Seleccione una obra para consultar su descripción, estructura y temas principales.
-        Los textos de esta sección se basan en el documento editorial “Libros Lucky Gurovich”.
+        Las nueve fichas editoriales originales se conservan intactas; las futuras obras se incorporan automáticamente desde el Panel del editor.
       </p>
 
       <div class="details-shell">
@@ -1346,12 +1346,104 @@ function renderEditGrid(){
           <input type="text" data-field="genre" value="${escapeHtml(b.genre)}">
         </div>
       </div>
-      <label>Descripción</label>
+      <label>Descripción breve para el catálogo</label>
       <textarea data-field="desc">${escapeHtml(b.desc)}</textarea>
+
+      <div style="margin-top:18px; padding-top:14px; border-top:1px solid var(--line);">
+        <div class="mono" style="font-size:11px; color:var(--sage); margin-bottom:8px;">FICHA DETALLADA AUTOMÁTICA</div>
+        <p style="font-size:12px; color:var(--parchment-2); opacity:.75; margin-bottom:8px;">
+          Para los libros nuevos, estos campos crean automáticamente su lámina en “Detalles de los Libros”. En las nueve obras originales se conserva la ficha editorial existente.
+        </p>
+      </div>
+
+      <label>Descripción detallada</label>
+      <textarea data-field="detailDescription" placeholder="Texto amplio de presentación de la obra…">${escapeHtml(b.detailDescription || b.desc || '')}</textarea>
+
+      <label>Temas principales — uno por línea</label>
+      <textarea data-field="detailThemes" placeholder="Inteligencia artificial&#10;Filosofía&#10;Cultura…">${escapeHtml(b.detailThemes || '')}</textarea>
+
+      <label>Estructura / características — una por línea</label>
+      <textarea data-field="detailStructure" placeholder="Capítulo 1…&#10;Capítulo 2…&#10;Característica visual…">${escapeHtml(b.detailStructure || '')}</textarea>
+
       <label>Enlace de descarga del PDF (Google Drive, Dropbox, etc.)</label>
       <input type="url" data-field="pdfUrl" placeholder="https://…" value="${escapeHtml(b.pdfUrl||'')}">
     </div>
   `).join('');
+}
+
+function detailLines(value){
+  return String(value || '')
+    .split(/\r?\n/)
+    .map(line => line.trim())
+    .filter(Boolean);
+}
+
+function renderDynamicDetails(){
+  const shell = document.querySelector('#detalles-libros .details-shell');
+  const dotsBox = document.getElementById('detail-dots');
+  if(!shell || !dotsBox) return;
+
+  shell.querySelectorAll('.detail-slide[data-generated="true"]').forEach(el=>el.remove());
+  dotsBox.querySelectorAll('.detail-dot[data-generated="true"]').forEach(el=>el.remove());
+
+  const total = books.length;
+  const countLabel = document.getElementById('details-count-label');
+  if(countLabel) countLabel.textContent = total + (total === 1 ? ' obra' : ' obras');
+
+  const originalSlides = Array.from(shell.querySelectorAll('.detail-slide:not([data-generated="true"])'));
+  originalSlides.forEach((slide,index)=>{
+    slide.dataset.detailIndex = index;
+    const kicker = slide.querySelector('.detail-kicker');
+    if(kicker) kicker.textContent = 'Libro ' + (index + 1) + ' de ' + total;
+  });
+
+  books.slice(9).forEach((b,offset)=>{
+    const index = offset + 9;
+    const themes = detailLines(b.detailThemes);
+    const structure = detailLines(b.detailStructure);
+    const description = b.detailDescription || b.desc || '';
+
+    const article = document.createElement('article');
+    article.className = 'detail-slide';
+    article.dataset.detailIndex = index;
+    article.dataset.generated = 'true';
+    article.innerHTML = `
+      <div class="detail-kicker">Libro ${index + 1} de ${total}</div>
+      <h3>${escapeHtml(b.title)}</h3>
+      <div class="detail-grid">
+        <div>
+          <h4>Descripción</h4>
+          <p>${escapeHtml(description)}</p>
+          ${structure.length ? `
+            <h4>Estructura / características</h4>
+            <ul>${structure.map(item => '<li>' + escapeHtml(item) + '</li>').join('')}</ul>
+          ` : ''}
+        </div>
+        <div class="detail-side">
+          <h4>Temas principales</h4>
+          ${themes.length
+            ? '<ul>' + themes.map(item => '<li>' + escapeHtml(item) + '</li>').join('') + '</ul>'
+            : '<p>Información editorial pendiente.</p>'}
+          <h4>Datos de la obra</h4>
+          <ul>
+            <li>Autor: Luis Gurovich.</li>
+            ${b.genre ? '<li>Categoría: ' + escapeHtml(b.genre) + '.</li>' : ''}
+            <li>Código de catálogo: ${escapeHtml(b.code)}.</li>
+          </ul>
+        </div>
+      </div>
+    `;
+    shell.appendChild(article);
+
+    const dot = document.createElement('button');
+    dot.type = 'button';
+    dot.className = 'detail-dot';
+    dot.dataset.detailGo = index;
+    dot.dataset.generated = 'true';
+    dot.setAttribute('aria-label','Libro ' + (index + 1));
+    dot.textContent = String(index + 1);
+    dotsBox.appendChild(dot);
+  });
 }
 
 function syncBooksFromEditor(){
@@ -1382,6 +1474,9 @@ document.getElementById('add-book').addEventListener('click', ()=>{
     title:'',
     subtitle:'',
     desc:'',
+    detailDescription:'',
+    detailThemes:'',
+    detailStructure:'',
     pdfUrl:'',
     cover:''
   });
@@ -1400,7 +1495,15 @@ document.getElementById('save-catalog').addEventListener('click', async ()=>{
 
   const incomplete = books.find(b => !b.title || !b.genre || !b.desc || !b.pdfUrl);
   if(incomplete){
-    alert('Antes de guardar, completa Título, Género / categoría, Descripción y Enlace de descarga del PDF para el libro COD. ' + incomplete.code + '.');
+    alert('Antes de guardar, completa Título, Género / categoría, Descripción breve y Enlace de descarga del PDF para el libro COD. ' + incomplete.code + '.');
+    return;
+  }
+
+  const detailIncomplete = books.slice(9).find(b =>
+    !b.detailDescription || !b.detailThemes || !b.detailStructure
+  );
+  if(detailIncomplete){
+    alert('Para el libro nuevo COD. ' + detailIncomplete.code + ', completa también Descripción detallada, Temas principales y Estructura / características. Estos campos crean automáticamente su ficha en “Detalles de los Libros”.');
     return;
   }
 
@@ -1409,6 +1512,7 @@ document.getElementById('save-catalog').addEventListener('click', async ()=>{
   try{
     await saveBooks();
     renderCatalog();
+    renderDynamicDetails();
     renderFilterOptions();
     btn.textContent = 'Guardado ✓';
   }catch(e){
@@ -1425,6 +1529,7 @@ document.getElementById('reset-catalog').addEventListener('click', async ()=>{
   try{
     await saveBooks();
     renderCatalog();
+    renderDynamicDetails();
     renderEditGrid();
     renderFilterOptions();
   }catch(e){
@@ -1439,30 +1544,35 @@ document.getElementById('reset-catalog').addEventListener('click', async ()=>{
 (async function init(){
   await loadBooks();
   renderCatalog();
+  renderDynamicDetails();
 })();
 </script>
 
 <script>
 (function(){
-  const slides = Array.from(document.querySelectorAll('.detail-slide'));
-  const dots = Array.from(document.querySelectorAll('.detail-dot'));
+  const dotsBox = document.getElementById('detail-dots');
   const prev = document.getElementById('detail-prev');
   const next = document.getElementById('detail-next');
-  if (!slides.length) return;
-
   let current = 0;
 
   function showDetail(index){
+    const slides = Array.from(document.querySelectorAll('.detail-slide'));
+    const dots = Array.from(document.querySelectorAll('.detail-dot'));
+    if(!slides.length) return;
     current = (index + slides.length) % slides.length;
     slides.forEach((slide, i) => slide.classList.toggle('active', i === current));
     dots.forEach((dot, i) => dot.classList.toggle('active', i === current));
   }
 
-  dots.forEach(dot => {
-    dot.addEventListener('click', () => showDetail(Number(dot.dataset.detailGo)));
-  });
-  prev.addEventListener('click', () => showDetail(current - 1));
-  next.addEventListener('click', () => showDetail(current + 1));
+  if(dotsBox){
+    dotsBox.addEventListener('click', (event)=>{
+      const dot = event.target.closest('.detail-dot');
+      if(!dot) return;
+      showDetail(Number(dot.dataset.detailGo));
+    });
+  }
+  if(prev) prev.addEventListener('click', () => showDetail(current - 1));
+  if(next) next.addEventListener('click', () => showDetail(current + 1));
 
   document.querySelectorAll('a[href="#detalles-libros"]').forEach(link => {
     link.addEventListener('click', () => showDetail(0));

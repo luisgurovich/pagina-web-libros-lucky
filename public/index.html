@@ -1065,7 +1065,7 @@ const DEFAULT_BOOKS = [
   { id:6, code:"006", genre:"Filosofía / Espiritualidad", title:"El Eterno Diálogo", subtitle:"", desc:"El Eterno Diálogo explora la idea de 'Dios-El Universo' como una totalidad dual que reúne, en permanente tensión y complemento, la eternidad y el infinito, el espíritu y la materia. A través de un recorrido filosófico y contemplativo, invita a repensar la relación entre lo divino y lo físico, entre aquello que no tiene principio ni fin y lo que ocupa espacio y tiempo. Más que ofrecer respuestas cerradas, el libro propone un diálogo continuo entre ciencia, fe y experiencia humana, sentando las bases filosóficas que el autor retomaría más adelante en sus reflexiones sobre el tiempo y la conciencia.", pdfUrl:"https://drive.google.com/uc?export=download&id=1jESmTjIQT1FCqx3wI1hgps08QOrThD0W", cover:"" },
   { id:7, code:"007", genre:"Evolución / Sociedad", title:"Homo sapiens: Evolución en tan solo un siglo", subtitle:"Análisis de la evolución humana como un proceso genoma–cultura–tecnología", desc:"Interpreta el período 1925–2025 como un cambio de régimen en la evolución humana, en el que la cultura y la tecnología se suman a la genética como vectores evolutivos. Once capítulos recorren la IA, la mente extendida, el rol social de la mujer, el Antropoceno, la biotecnología, la longevidad y la colonización espacial.", pdfUrl:"https://drive.google.com/uc?export=download&id=1YsWfoF3aDbREmQIB5HO_q6pZscHQ6emc", cover:"" },
   { id:8, code:"008", genre:"Filosofía / Ciencia", title:"El tiempo: El enigma y la ilusión", subtitle:"Un viaje entre la ciencia y la conciencia", desc:"Un recorrido por la naturaleza del tiempo a través de la física, la filosofía y la experiencia humana, en cuatro dimensiones: física, termodinámica, fenomenológica y existencial.", pdfUrl:"https://drive.google.com/uc?export=download&id=1z7QzK2CzwrOaBY5kwngeKWW2Tdswdxjy", cover:"" },
-  { id:9, code:"009", genre:"Inteligencia Artificial / Futuro", title:"Predicting the Future in the AI Era", subtitle:"", desc:"Una investigación sobre las posibilidades y límites de la inteligencia artificial para anticipar el futuro. Examina la predicción probabilística, la calibración, una taxonomía científica del porvenir y la capacidad de la IA para pronosticar fenómenos meteorológicos, epidemiológicos, económicos, políticos, tecnológicos y sociales, sin confundir predicción con certeza.", pdfUrl:"/Predicting%20the%20Future.pdf", cover:"" }
+  { id:9, code:"009", genre:"Inteligencia Artificial / Futuro", title:"Predicting the Future in the AI Era", subtitle:"", desc:"Una investigación sobre las posibilidades y límites de la inteligencia artificial para anticipar el futuro. Examina la predicción probabilística, la calibración, una taxonomía científica del porvenir y la capacidad de la IA para pronosticar fenómenos meteorológicos, epidemiológicos, económicos, políticos, tecnológicos y sociales, sin confundir predicción con certeza.", pdfUrl:"https://drive.google.com/uc?export=download&id=1I_7HylupyosrR-fe_m8WM3jmLyrQ3UMr", cover:"" }
 ];
 
 let books = [];
@@ -1217,7 +1217,7 @@ document.getElementById('download-form').addEventListener('submit', async (e)=>{
   submitBtn.textContent = 'Registrando…';
 
   const book = currentBook;
-  const popup = book && book.id !== 9 ? window.open('about:blank', '_blank') : null;
+  const popup = book ? window.open('about:blank', '_blank') : null;
 
   try{
     const response = await fetch(API_BASE + '/api/downloads', {
@@ -1237,14 +1237,7 @@ document.getElementById('download-form').addEventListener('submit', async (e)=>{
     document.getElementById('f-date').value = data.date || new Date().toISOString();
 
     if(book && book.pdfUrl){
-      if(book.id === 9){
-        const a = document.createElement('a');
-        a.href = book.pdfUrl;
-        a.download = 'Predicting the Future.pdf';
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-      }else if(popup){
+      if(popup){
         popup.location.href = book.pdfUrl;
       }else{
         window.location.href = book.pdfUrl;
@@ -1254,12 +1247,7 @@ document.getElementById('download-form').addEventListener('submit', async (e)=>{
     document.getElementById('modal-form-state').style.display = 'none';
     document.getElementById('modal-success-state').style.display = 'block';
 
-    if(book && book.id === 9){
-      document.getElementById('success-text').innerHTML =
-        'La descarga de <strong>' + book.title + '</strong> se ha iniciado. ' +
-        '<a href="' + book.pdfUrl + '" download="Predicting the Future.pdf" ' +
-        'style="color:var(--sage); font-weight:600;">Si no comienza automáticamente, haz clic aquí.</a>';
-    }else if(book){
+    if(book){
       document.getElementById('success-text').innerHTML =
         'El libro <strong>' + book.title + '</strong> se abrió en una nueva pestaña para su descarga. ' +
         '<a href="' + book.pdfUrl + '" target="_blank" rel="noopener" ' +

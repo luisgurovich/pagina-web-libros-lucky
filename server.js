@@ -14,6 +14,8 @@ const ADMIN_KEY = String(process.env.ADMIN_KEY || '');
 const IS_PRODUCTION = process.env.NODE_ENV === 'production';
 const STORAGE_API_BASE = String(process.env.PORTAL_STORAGE_API || '').replace(/\/+$/, '');
 const STORAGE_API_KEY = String(process.env.MIS_LIBROS_INTERNAL_KEY || '');
+const PUBLIC_BASE_URL = 'https://mis-libros-ia-luis-gurovich.onrender.com';
+const SEO_BOOKS_FILE = path.join(PUBLIC_DIR, 'books-seo.json');
 
 function safeEqualText(a, b) {
   const ah = crypto.createHash('sha256').update(String(a)).digest();
@@ -69,6 +71,120 @@ function cleanText(value, max) {
   return String(value || '').trim().replace(/\s+/g, ' ').slice(0, max);
 }
 
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function slugify(value) {
+  return String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 100) || 'libro';
+}
+
+function canonicalBookPath(book) {
+  const code = String(book.code || book.id || '').padStart(3, '0');
+  return '/libros/' + code + '-' + slugify(book.title);
+}
+
+function loadFallbackSeoBooks() {
+  try {
+    const raw = require('fs').readFileSync(SEO_BOOKS_FILE, 'utf8');
+    const books = JSON.parse(raw);
+    return Array.isArray(books) ? books : [];
+  } catch {
+    return [];
+  }
+}
+
+async function getPublicBooks() {
+  try {
+    const data = await storageRequest('/books', { method:'GET' });
+    if (Array.isArray(data.books) && data.books.length) return data.books;
+  } catch {}
+  return loadFallbackSeoBooks();
+}
+
+function renderBookSeoPage(book) {
+  const canonicalPath = canonicalBookPath(book);
+  const canonicalUrl = PUBLIC_BASE_URL + canonicalPath;
+  const title = cleanText(book.title, 220);
+  const description = cleanText(book.detailDescription || book.desc, 1000);
+  const genre = cleanText(book.genre, 220);
+  const subtitle = cleanText(book.subtitle, 220);
+  const code = cleanText(book.code, 20);
+
+  const schema = {
+    '@context':'https://schema.org',
+    '@type':'Book',
+    name:title,
+    description,
+    genre:genre || undefined,
+    author:{'@type':'Person', name:'Luis Gurovich'},
+    url:canonicalUrl,
+    isPartOf:{
+      '@type':'CollectionPage',
+      name:'Mis Libros IA — Luis Gurovich',
+      url:PUBLIC_BASE_URL + '/'
+    }
+  };
+  const jsonLd = JSON.stringify(schema).replace(/</g, '\\u003c');
+
+  return `<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>${escapeHtml(title)} — Luis Gurovich</title>
+<meta name="description" content="${escapeHtml(description.slice(0, 300))}">
+<meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1">
+<link rel="canonical" href="${canonicalUrl}">
+<meta property="og:type" content="book">
+<meta property="og:locale" content="es_CL">
+<meta property="og:site_name" content="Mis Libros IA — Luis Gurovich">
+<meta property="og:title" content="${escapeHtml(title)} — Luis Gurovich">
+<meta property="og:description" content="${escapeHtml(description.slice(0, 300))}">
+<meta property="og:url" content="${canonicalUrl}">
+<meta name="twitter:card" content="summary">
+<script type="application/ld+json">${jsonLd}</script>
+<style>
+body{margin:0;background:#14141c;color:#ede7d9;font:17px/1.65 Georgia,serif}
+main{max-width:820px;margin:0 auto;padding:64px 28px 80px}
+a{color:#d9ab5f}
+.eyebrow{font:12px/1.4 Arial,sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#d9ab5f}
+h1{font-size:46px;line-height:1.05;margin:14px 0 10px}
+.subtitle{font-style:italic;color:#ece4d1;margin:0 0 28px}
+.meta{font:13px/1.5 Arial,sans-serif;color:#b9b2a5;margin-bottom:28px}
+.card{background:#f3eee2;color:#1b1b22;padding:30px;border-radius:3px}
+.cta{display:inline-block;margin-top:28px;background:#b98a3d;color:#14141c;text-decoration:none;padding:12px 18px;font:600 14px Arial,sans-serif}
+.back{display:inline-block;margin-top:20px;font:14px Arial,sans-serif}
+</style>
+</head>
+<body>
+<main>
+<div class="eyebrow">Luis Gurovich · Biblioteca digital</div>
+<h1>${escapeHtml(title)}</h1>
+${subtitle ? '<p class="subtitle">' + escapeHtml(subtitle) + '</p>' : ''}
+<div class="meta">${code ? 'Código ' + escapeHtml(code) + ' · ' : ''}${genre ? escapeHtml(genre) : 'Libro digital'}</div>
+<div class="card">
+<h2>Acerca de este libro</h2>
+<p>${escapeHtml(description)}</p>
+<a class="cta" href="/#catalogo">Leer / descargar desde el catálogo</a>
+</div>
+<a class="back" href="/">← Volver a Mis Libros IA</a>
+</main>
+</body>
+</html>`;
+}
+
 async function storageRequest(route, options = {}) {
   if (!STORAGE_API_BASE || !STORAGE_API_KEY) {
     const error = new Error('El almacenamiento persistente no está configurado.');
@@ -121,6 +237,50 @@ const loginLimiter = rateLimit({
   limit: 20,
   standardHeaders: true,
   legacyHeaders: false
+});
+
+app.get('/robots.txt', (req, res) => {
+  res.type('text/plain').send(
+    'User-agent: *\n' +
+    'Allow: /\n' +
+    'Disallow: /api/\n' +
+    'Sitemap: ' + PUBLIC_BASE_URL + '/sitemap.xml\n'
+  );
+});
+
+app.get('/sitemap.xml', async (req, res) => {
+  const books = await getPublicBooks();
+  const urls = [
+    PUBLIC_BASE_URL + '/',
+    ...books.map(book => PUBLIC_BASE_URL + canonicalBookPath(book))
+  ];
+  const xml = '<?xml version="1.0" encoding="UTF-8"?>\n' +
+    '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n' +
+    urls.map(url => '  <url><loc>' + escapeHtml(url) + '</loc></url>').join('\n') +
+    '\n</urlset>\n';
+  res.type('application/xml').send(xml);
+});
+
+app.get('/libros/:bookRef', async (req, res) => {
+  const books = await getPublicBooks();
+  const ref = String(req.params.bookRef || '');
+  const code = ref.split('-')[0];
+  const book = books.find(item =>
+    String(item.code || item.id || '').padStart(3, '0') === code ||
+    slugify(item.title) === ref
+  );
+  if (!book) return res.status(404).send('Libro no encontrado.');
+
+  const canonicalPath = canonicalBookPath(book);
+  if (req.path !== canonicalPath) return res.redirect(301, canonicalPath);
+
+  res.setHeader('Cache-Control', 'public, max-age=900');
+  res.type('html').send(renderBookSeoPage(book));
+});
+
+app.use('/api', (req, res, next) => {
+  res.setHeader('X-Robots-Tag', 'noindex, nofollow');
+  next();
 });
 
 app.get('/healthz', async (req, res) => {

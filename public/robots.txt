@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://mis-libros-ia-publico-luis-gurovich.onrender.com/sitemap.xml

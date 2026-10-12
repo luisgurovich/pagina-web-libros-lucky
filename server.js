@@ -14,8 +14,9 @@ const ADMIN_KEY = String(process.env.ADMIN_KEY || '');
 const IS_PRODUCTION = process.env.NODE_ENV === 'production';
 const STORAGE_API_BASE = String(process.env.PORTAL_STORAGE_API || '').replace(/\/+$/, '');
 const STORAGE_API_KEY = String(process.env.MIS_LIBROS_INTERNAL_KEY || '');
-const PUBLIC_BASE_URL = 'https://mis-libros-ia-luis-gurovich.onrender.com';
+const PUBLIC_BASE_URL = 'https://mis-libros-ia-publico-luis-gurovich.onrender.com';
 const SEO_BOOKS_FILE = path.join(PUBLIC_DIR, 'books-seo.json');
+const PUBLIC_FRONTEND_ORIGIN = 'https://mis-libros-ia-publico-luis-gurovich.onrender.com';
 
 function safeEqualText(a, b) {
   const ah = crypto.createHash('sha256').update(String(a)).digest();
@@ -65,6 +66,28 @@ function verifySameOrigin(req) {
   } catch {
     return false;
   }
+}
+
+function verifyPublicOrigin(req) {
+  const origin = req.get('origin');
+  if (!origin) return true;
+  try {
+    return new URL(origin).host === req.get('host') || origin === PUBLIC_FRONTEND_ORIGIN;
+  } catch {
+    return false;
+  }
+}
+
+function publicCors(req, res, next) {
+  const origin = req.get('origin');
+  if (origin === PUBLIC_FRONTEND_ORIGIN) {
+    res.setHeader('Access-Control-Allow-Origin', PUBLIC_FRONTEND_ORIGIN);
+    res.setHeader('Vary', 'Origin');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  }
+  if (req.method === 'OPTIONS') return res.sendStatus(204);
+  next();
 }
 
 function cleanText(value, max) {
@@ -284,6 +307,9 @@ app.use('/api', (req, res, next) => {
   next();
 });
 
+app.use('/api/books', publicCors);
+app.use('/api/downloads', publicCors);
+
 app.get('/healthz', async (req, res) => {
   try {
     const storage = await storageRequest('/status');
@@ -309,7 +335,7 @@ app.get('/api/books', async (req, res) => {
 });
 
 app.post('/api/downloads', downloadLimiter, async (req, res) => {
-  if (!verifySameOrigin(req)) return res.status(403).json({ error: 'Origen no permitido.' });
+  if (!verifyPublicOrigin(req)) return res.status(403).json({ error: 'Origen no permitido.' });
 
   const bookId = Number(req.body.bookId);
   const bookTitle = cleanText(req.body.bookTitle, 220);

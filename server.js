@@ -240,10 +240,11 @@ const loginLimiter = rateLimit({
 });
 
 app.get('/robots.txt', (req, res) => {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
+  res.setHeader('Pragma', 'no-cache');
   res.type('text/plain').send(
     'User-agent: *\n' +
     'Allow: /\n' +
-    'Disallow: /api/\n' +
     'Sitemap: ' + PUBLIC_BASE_URL + '/sitemap.xml\n'
   );
 });

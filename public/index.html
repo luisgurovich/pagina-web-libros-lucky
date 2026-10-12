@@ -6,14 +6,14 @@
 <title>Libros de Luis Gurovich con IA — Biblioteca digital</title>
 <meta name="description" content="Biblioteca digital gratuita de Luis Gurovich: libros sobre inteligencia artificial, filosofía, cosmología, conciencia, evolución, tiempo y futuro, disponibles para lectura y descarga.">
 <meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1">
-<link rel="canonical" href="https://mis-libros-ia-luis-gurovich.onrender.com/">
+<link rel="canonical" href="https://mis-libros-ia-publico-luis-gurovich.onrender.com/">
 <link rel="sitemap" type="application/xml" title="Sitemap" href="/sitemap.xml">
 <meta property="og:type" content="website">
 <meta property="og:locale" content="es_CL">
 <meta property="og:site_name" content="Mis Libros IA — Luis Gurovich">
 <meta property="og:title" content="Libros de Luis Gurovich con IA — Biblioteca digital">
 <meta property="og:description" content="Biblioteca digital gratuita de Luis Gurovich sobre inteligencia artificial, filosofía, cosmología, conciencia, evolución, tiempo y futuro.">
-<meta property="og:url" content="https://mis-libros-ia-luis-gurovich.onrender.com/">
+<meta property="og:url" content="https://mis-libros-ia-publico-luis-gurovich.onrender.com/">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="Libros de Luis Gurovich con IA — Biblioteca digital">
 <meta name="twitter:description" content="Biblioteca digital gratuita de Luis Gurovich sobre inteligencia artificial, filosofía, cosmología, conciencia, evolución, tiempo y futuro.">
@@ -23,25 +23,25 @@
   "@graph":[
     {
       "@type":"WebSite",
-      "@id":"https://mis-libros-ia-luis-gurovich.onrender.com/#website",
-      "url":"https://mis-libros-ia-luis-gurovich.onrender.com/",
+      "@id":"https://mis-libros-ia-publico-luis-gurovich.onrender.com/#website",
+      "url":"https://mis-libros-ia-publico-luis-gurovich.onrender.com/",
       "name":"Mis Libros IA — Luis Gurovich",
       "inLanguage":"es"
     },
     {
       "@type":"Person",
-      "@id":"https://mis-libros-ia-luis-gurovich.onrender.com/#author",
+      "@id":"https://mis-libros-ia-publico-luis-gurovich.onrender.com/#author",
       "name":"Luis Gurovich",
-      "url":"https://mis-libros-ia-luis-gurovich.onrender.com/#autor"
+      "url":"https://mis-libros-ia-publico-luis-gurovich.onrender.com/#autor"
     },
     {
       "@type":"CollectionPage",
-      "@id":"https://mis-libros-ia-luis-gurovich.onrender.com/#collection",
-      "url":"https://mis-libros-ia-luis-gurovich.onrender.com/",
+      "@id":"https://mis-libros-ia-publico-luis-gurovich.onrender.com/#collection",
+      "url":"https://mis-libros-ia-publico-luis-gurovich.onrender.com/",
       "name":"Libros de Luis Gurovich con IA — Biblioteca digital",
       "description":"Biblioteca digital gratuita de Luis Gurovich sobre inteligencia artificial, filosofía, cosmología, conciencia, evolución, tiempo y futuro.",
-      "isPartOf":{"@id":"https://mis-libros-ia-luis-gurovich.onrender.com/#website"},
-      "author":{"@id":"https://mis-libros-ia-luis-gurovich.onrender.com/#author"},
+      "isPartOf":{"@id":"https://mis-libros-ia-publico-luis-gurovich.onrender.com/#website"},
+      "author":{"@id":"https://mis-libros-ia-publico-luis-gurovich.onrender.com/#author"},
       "inLanguage":"es"
     }
   ]
@@ -1072,13 +1072,31 @@ let books = [];
 let downloads = [];
 let currentBook = null;
 
+const PUBLIC_SITE_URL = 'https://mis-libros-ia-publico-luis-gurovich.onrender.com';
+const BACKEND_URL = 'https://mis-libros-ia-luis-gurovich.onrender.com';
+const IS_BACKEND_HOST = window.location.hostname === 'mis-libros-ia-luis-gurovich.onrender.com';
+const API_BASE = IS_BACKEND_HOST ? '' : BACKEND_URL;
+
+function slugifyBookTitle(value){
+  return String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0,100) || 'libro';
+}
+function publicBookPath(book){
+  return '/libros/' + String(book.code || book.id || '').padStart(3,'0') + '-' + slugifyBookTitle(book.title) + '/';
+}
+
 /* ============================================================
    2. PERSISTENCIA
    ============================================================ */
 async function loadBooks(){
   books = DEFAULT_BOOKS.map(b => ({...b, cover:b.cover || ""}));
   try{
-    const response = await fetch('/api/books', { cache:'no-store', credentials:'same-origin' });
+    const response = await fetch(API_BASE + '/api/books', { cache:'no-store' });
     if(!response.ok) throw new Error('No se pudo cargar el catálogo guardado.');
     const data = await response.json();
     if(Array.isArray(data.books) && data.books.length){
@@ -1119,7 +1137,7 @@ function renderCatalog(){
       <div class="card-perf"></div>
       <div class="card-body">
         <div class="card-code"><span>COD. ${b.code}</span><span>FICHA</span></div>
-        <h3>${escapeHtml(b.title)}</h3>
+        <h3><a href="${publicBookPath(b)}" style="color:inherit;text-decoration:none;">${escapeHtml(b.title)}</a></h3>
         ${b.subtitle ? `<div class="subtitle">${escapeHtml(b.subtitle)}</div>` : ''}
         <p class="desc">${escapeHtml(b.desc)}</p>
         <div class="card-foot">
@@ -1200,10 +1218,9 @@ document.getElementById('download-form').addEventListener('submit', async (e)=>{
   const popup = book && book.id !== 9 ? window.open('about:blank', '_blank') : null;
 
   try{
-    const response = await fetch('/api/downloads', {
+    const response = await fetch(API_BASE + '/api/downloads', {
       method:'POST',
       headers:{'Content-Type':'application/json'},
-      credentials:'same-origin',
       body:JSON.stringify({
         bookId: book ? book.id : null,
         bookTitle: book ? book.title : '',
@@ -1261,6 +1278,10 @@ document.getElementById('download-form').addEventListener('submit', async (e)=>{
    ============================================================ */
 document.getElementById('open-admin').addEventListener('click', (e)=>{
   e.preventDefault();
+  if(!IS_BACKEND_HOST){
+    window.location.href = BACKEND_URL + '/?admin=1';
+    return;
+  }
   document.body.classList.add('admin-mode');
   window.scrollTo(0,0);
 });
@@ -1615,6 +1636,10 @@ document.getElementById('reset-catalog').addEventListener('click', async ()=>{
   await loadBooks();
   renderCatalog();
   renderDynamicDetails();
+  if(IS_BACKEND_HOST && new URLSearchParams(window.location.search).get('admin') === '1'){
+    document.body.classList.add('admin-mode');
+    window.scrollTo(0,0);
+  }
 })();
 </script>
 

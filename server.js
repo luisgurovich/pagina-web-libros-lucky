@@ -438,10 +438,36 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: 'Error interno del servidor.' });
 });
 
+async function migrateBook9PdfUrl() {
+  const targetUrl = 'https://drive.google.com/uc?export=download&id=1I_7HylupyosrR-fe_m8WM3jmLyrQ3UMr';
+  try {
+    const data = await storageRequest('/books', { method:'GET' });
+    if (!Array.isArray(data.books) || !data.books.length) return;
+    const books = data.books.map(book => ({...book}));
+    const book9 = books.find(book => Number(book.id) === 9 || String(book.code) === '009');
+    if (!book9) return;
+    if (book9.pdfUrl === targetUrl) {
+      console.log('Libro 9: enlace PDF de Google Drive ya configurado.');
+      return;
+    }
+    book9.pdfUrl = targetUrl;
+    await storageRequest('/books', {
+      method:'PUT',
+      body:JSON.stringify({books})
+    });
+    console.log('Libro 9: enlace PDF migrado correctamente a Google Drive.');
+  } catch (error) {
+    console.error('No fue posible migrar el enlace PDF del libro 9: ' + error.message);
+  }
+}
+
 app.listen(PORT, '0.0.0.0', () => {
   console.log('Mis Libros IA activo en puerto ' + PORT);
   console.log('Almacenamiento remoto: ' + (STORAGE_API_BASE || 'NO CONFIGURADO'));
   storageRequest('/status')
-    .then(status => console.log('Almacenamiento persistente remoto verificado: ' + Boolean(status.persistentStorage)))
+    .then(async status => {
+      console.log('Almacenamiento persistente remoto verificado: ' + Boolean(status.persistentStorage));
+      await migrateBook9PdfUrl();
+    })
     .catch(error => console.error('No fue posible verificar el almacenamiento remoto: ' + error.message));
 });

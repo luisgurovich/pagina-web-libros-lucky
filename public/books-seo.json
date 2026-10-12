@@ -1,0 +1,74 @@
+[
+  {
+    "id": 1,
+    "code": "001",
+    "genre": "Inteligencia Artificial / Filosofía",
+    "title": "Conversaciones con mi amigo Pi",
+    "subtitle": "",
+    "desc": "Una recopilación de conversaciones entre Luis Gurovich y Pi, la inteligencia artificial de Inflection AI, sobre inteligencia artificial, cosmología, evolución, conocimiento, identidad, jubilación, vida y muerte, y la relación intelectual y emocional entre una persona y una entidad de IA."
+  },
+  {
+    "id": 2,
+    "code": "002",
+    "genre": "Reflexión / Tradición",
+    "title": "Diálogos sobre la Parashá semanal con mi amigo Pi",
+    "subtitle": "",
+    "desc": "Estructurada en torno a las 54 porciones semanales de la Torá, esta obra examina —mediante conversaciones con Pi— ideas históricas, culturales, filosóficas y éticas de cada Parashá, vinculándolas con la inteligencia artificial, la identidad, la justicia y los grandes problemas de la humanidad. Incluye ilustraciones y portada bilingüe español/hebreo."
+  },
+  {
+    "id": 3,
+    "code": "003",
+    "genre": "Cosmología / Filosofía",
+    "title": "My Cosmology",
+    "subtitle": "",
+    "desc": "Una exploración personal, científica y filosófica de la naturaleza del Universo, desarrollada en conversaciones con Pi y ChatGPT. Distingue el Universo —infinito y eterno— del Cosmos —finito, surgido del Big Bang— y examina la entropía, el origen de la vida y la evolución, con referencias a Wetterich, Penrose, Tegmark, Hawking y Maimónides."
+  },
+  {
+    "id": 4,
+    "code": "004",
+    "genre": "Filosofía / Inteligencia Artificial",
+    "title": "The Final Frontier: Exploring Death in the Age of AI",
+    "subtitle": "",
+    "desc": "Una obra extensa e interdisciplinaria sobre la muerte en la era de la inteligencia artificial: preservación digital de la memoria, avatares póstumos, interfaces cerebro-computador e inmortalidad digital, junto a las preguntas filosóficas de identidad, continuidad y autenticidad que estas tecnologías plantean. Coescrito con Claude Sonnet."
+  },
+  {
+    "id": 5,
+    "code": "005",
+    "genre": "Filosofía / Inteligencia Artificial",
+    "title": "Human Consciousness in the Era of Artificial Intelligence",
+    "subtitle": "",
+    "desc": "Seis ensayos interconectados sobre el futuro de la conciencia humana ante el avance de la IA: transferencia de conciencia a soportes digitales, simbiosis cognitiva entre mentes humanas y artificiales, descendencia digital y la eventual transición hacia una inteligencia postbiológica. Coescrito con Claude Sonnet."
+  },
+  {
+    "id": 6,
+    "code": "006",
+    "genre": "Filosofía / Espiritualidad",
+    "title": "El Eterno Diálogo",
+    "subtitle": "",
+    "desc": "El Eterno Diálogo explora la idea de 'Dios-El Universo' como una totalidad dual que reúne, en permanente tensión y complemento, la eternidad y el infinito, el espíritu y la materia. A través de un recorrido filosófico y contemplativo, invita a repensar la relación entre lo divino y lo físico, entre aquello que no tiene principio ni fin y lo que ocupa espacio y tiempo. Más que ofrecer respuestas cerradas, el libro propone un diálogo continuo entre ciencia, fe y experiencia humana, sentando las bases filosóficas que el autor retomaría más adelante en sus reflexiones sobre el tiempo y la conciencia."
+  },
+  {
+    "id": 7,
+    "code": "007",
+    "genre": "Evolución / Sociedad",
+    "title": "Homo sapiens: Evolución en tan solo un siglo",
+    "subtitle": "Análisis de la evolución humana como un proceso genoma–cultura–tecnología",
+    "desc": "Interpreta el período 1925–2025 como un cambio de régimen en la evolución humana, en el que la cultura y la tecnología se suman a la genética como vectores evolutivos. Once capítulos recorren la IA, la mente extendida, el rol social de la mujer, el Antropoceno, la biotecnología, la longevidad y la colonización espacial."
+  },
+  {
+    "id": 8,
+    "code": "008",
+    "genre": "Filosofía / Ciencia",
+    "title": "El tiempo: El enigma y la ilusión",
+    "subtitle": "Un viaje entre la ciencia y la conciencia",
+    "desc": "Un recorrido por la naturaleza del tiempo a través de la física, la filosofía y la experiencia humana, en cuatro dimensiones: física, termodinámica, fenomenológica y existencial."
+  },
+  {
+    "id": 9,
+    "code": "009",
+    "genre": "Inteligencia Artificial / Futuro",
+    "title": "Predicting the Future in the AI Era",
+    "subtitle": "",
+    "desc": "Una investigación sobre las posibilidades y límites de la inteligencia artificial para anticipar el futuro. Examina la predicción probabilística, la calibración, una taxonomía científica del porvenir y la capacidad de la IA para pronosticar fenómenos meteorológicos, epidemiológicos, económicos, políticos, tecnológicos y sociales, sin confundir predicción con certeza."
+  }
+]

@@ -233,7 +233,7 @@
   .card .subtitle{font-size:13px; font-style:italic; color:#71695a; margin-bottom:14px;}
   .card p.desc{font-size:14.5px; color:#4a4638; flex:1;}
   .card-foot{
-    display:flex; align-items:center; justify-content:space-between;
+    display:flex; align-items:flex-end; justify-content:space-between; gap:12px; flex-wrap:wrap;
     margin-top:18px; padding-top:14px; border-top:1px solid var(--line-dark);
   }
   .genre-pill{
@@ -241,13 +241,20 @@
     text-transform:uppercase; color:var(--sage); border:1px solid var(--sage); border-radius:99px;
     padding:4px 9px;
   }
-  .dl-btn{
-    background:var(--ink); color:var(--parchment);
-    border:none; padding:9px 15px; border-radius:var(--radius); font-size:13px; font-weight:600;
-    display:inline-flex; align-items:center; gap:7px;
-    transition:background .2s;
+  .card-actions{
+    display:flex; gap:8px; flex-wrap:wrap; margin-left:auto;
   }
-  .dl-btn:hover{background:var(--bronze); color:var(--ink);}
+  .view-btn,
+  .dl-btn{
+    border:1px solid var(--ink); padding:9px 13px; border-radius:var(--radius);
+    font-size:12.5px; font-weight:600; display:inline-flex; align-items:center; gap:7px;
+    transition:background .2s,color .2s,border-color .2s;
+    cursor:pointer;
+  }
+  .view-btn{background:transparent; color:var(--ink);}
+  .view-btn:hover{background:var(--parchment-2);}
+  .dl-btn{background:var(--ink); color:var(--parchment);}
+  .dl-btn:hover{background:var(--bronze); color:var(--ink); border-color:var(--bronze);}
 
 
   /* ===== Detalles de los Libros ===== */
@@ -1089,6 +1096,22 @@ function slugifyBookTitle(value){
 function publicBookPath(book){
   return '/libros/' + String(book.code || book.id || '').padStart(3,'0') + '-' + slugifyBookTitle(book.title) + '/';
 }
+function bookViewUrl(book){
+  const url = String(book && book.pdfUrl || '');
+  if(!url) return '';
+  const driveId =
+    (url.match(/[?&]id=([A-Za-z0-9_-]+)/) || [])[1] ||
+    (url.match(/\/file\/d\/([A-Za-z0-9_-]+)/) || [])[1];
+  return driveId ? 'https://drive.google.com/file/d/' + driveId + '/view' : url;
+}
+function viewBook(bookId){
+  const book = books.find(b=>Number(b.id)===Number(bookId));
+  if(!book || !book.pdfUrl){
+    alert('Este libro todavía no tiene un archivo disponible para ver en pantalla.');
+    return;
+  }
+  window.open(bookViewUrl(book), '_blank', 'noopener');
+}
 
 /* ============================================================
    2. PERSISTENCIA
@@ -1144,7 +1167,10 @@ function renderCatalog(){
         <p class="desc">${escapeHtml(b.desc)}</p>
         <div class="card-foot">
           <span class="genre-pill">${escapeHtml(b.genre)}</span>
-          <button class="dl-btn" data-id="${b.id}">Descargar ↓</button>
+          <div class="card-actions">
+            <button class="view-btn" data-id="${b.id}">Ver en pantalla</button>
+            <button class="dl-btn" data-id="${b.id}">Descargar ↓</button>
+          </div>
         </div>
       </div>
     </article>
@@ -1159,6 +1185,9 @@ function renderCatalog(){
       ' del diálogo entre una vida dedicada al conocimiento y las nuevas inteligencias artificiales.';
   }
 
+  grid.querySelectorAll('.view-btn').forEach(btn=>{
+    btn.addEventListener('click', ()=> viewBook(Number(btn.dataset.id)));
+  });
   grid.querySelectorAll('.dl-btn').forEach(btn=>{
     btn.addEventListener('click', ()=> openModal(Number(btn.dataset.id)));
   });

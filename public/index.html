@@ -553,17 +553,6 @@
     </div>
   </header>
 
-  <section class="hero original-cover" id="inicio">
-    <div class="original-cover-copy">
-      <p class="original-eyebrow">LUIS GUROVICH · BIBLIOTECA DIGITAL</p>
-      <h1>Ideas humanas,<br><em>ampliadas por la IA.</em></h1>
-      <p class="original-lead" id="hero-books-lead">Libros nacidos del diálogo entre una vida dedicada al conocimiento y las nuevas inteligencias artificiales.</p>
-      <div class="original-actions"><a href="#catalogo" class="original-primary">Explorar el catálogo ↓</a><a href="#autor">Conocer al autor →</a></div>
-      <div class="original-stats"><span><b id="hero-book-count">9</b> obras</span><span><b>2023—2026</b> periodo creativo</span><span><b>PDF</b> acceso gratuito</span></div>
-    </div>
-    <div class="original-orbits" aria-hidden="true"><i></i><i></i><strong>AI</strong><small>CIENCIA · FILOSOFÍA<br>CONCIENCIA · EXISTENCIA</small></div>
-  </section>
-
   <section id="catalogo">
     <div class="wrap">
       <div class="section-head">
@@ -574,6 +563,16 @@
     </div>
   </section>
 
+  <section class="hero original-cover" id="inicio">
+    <div class="original-cover-copy">
+      <p class="original-eyebrow">LUIS GUROVICH · BIBLIOTECA DIGITAL</p>
+      <h1>Ideas humanas,<br><em>ampliadas por la IA.</em></h1>
+      <p class="original-lead" id="hero-books-lead">Libros nacidos del diálogo entre una vida dedicada al conocimiento y las nuevas inteligencias artificiales.</p>
+      <div class="original-actions"><a href="#catalogo" class="original-primary">Explorar el catálogo ↓</a><a href="#autor">Conocer al autor →</a></div>
+      <div class="original-stats"><span><b id="hero-book-count">9</b> obras</span><span><b>2023—2026</b> periodo creativo</span><span><b>PDF</b> acceso gratuito</span></div>
+    </div>
+    <div class="original-orbits" aria-hidden="true"><i></i><i></i><strong>AI</strong><small>CIENCIA · FILOSOFÍA<br>CONCIENCIA · EXISTENCIA</small></div>
+  </section>
 
   <section id="detalles-libros">
     <div class="wrap">
@@ -1117,7 +1116,6 @@ function viewBook(bookId){
    2. PERSISTENCIA
    ============================================================ */
 async function loadBooks(){
-  books = DEFAULT_BOOKS.map(b => ({...b, cover:b.cover || ""}));
   try{
     const response = await fetch(API_BASE + '/api/books', { cache:'no-store' });
     if(!response.ok) throw new Error('No se pudo cargar el catálogo guardado.');
@@ -1652,6 +1650,10 @@ document.getElementById('reset-catalog').addEventListener('click', async ()=>{
    7. INIT
    ============================================================ */
 (async function init(){
+  // Mostrar las fichas antes de esperar al servidor.
+  books = DEFAULT_BOOKS.map(b => ({...b, cover:b.cover || ""}));
+  renderCatalog();
+  renderDynamicDetails();
   await loadBooks();
   renderCatalog();
   renderDynamicDetails();
